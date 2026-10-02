@@ -50,6 +50,7 @@ let st=L("tm2")||{name:"",fr:[],lu:0,nid:1,slots:null,tk:{},tg:[]};
 if(!st.slots){st.slots=[];[["04:30","07:00","DSA"],["07:00","08:30","Workout"],["09:00","11:30","Japanese"],["12:30","15:00","Python"],["15:30","17:00","College"],["17:00","18:00","Aptitude"],["18:30","20:30","Project"],["21:30","22:30","Revise + Masters"]].forEach((b,i)=>{for(let d=0;d<7;d++)st.slots.push({id:st.nid++,d,a:b[0],b:b[1],x:b[2],c:i,r:5})})}
 let v="today",today=iso(new Date()),day=today,fd=today,ttd=new Date().getDay(),ed=null,fsel=null,DB=null,ME=null,P={},subs={},pt=null,WF=false;
 const LN=(window.Capacitor&&Capacitor.Plugins&&Capacitor.Plugins.LocalNotifications)||null;
+let FS="Starting up...";
 const slotsFor=(sl,k)=>sl.filter(s=>s.d==pd(k).getDay()).sort((a,b)=>a.a<b.a?-1:a.a>b.a?1:0);
 function pct(o,k){const sl=slotsFor(o.slots||[],k),tk=(o.tk||{})[k]||{},g=(o.tg||[]).filter(x=>x.k==k);return[sl.filter(s=>tk[s.id]).length+g.filter(x=>x.done).length,sl.length+g.length]}
 function streak(){let n=0;for(let i=0;i<365;i++){const[a,t]=pct(st,iso(addD(new Date(),-i)));if(t&&a/t>=.8)n++;else if(i>0&&t)break;else if(i>0&&!t)continue}return n}
@@ -90,10 +91,11 @@ function vTT(){const sl=st.slots.filter(s=>s.d==ttd).sort((a,b)=>a.a<b.a?-1:1);
  `<div class="add"><button data-a="ss">Save</button><button class="alt" data-a="sc">Cancel</button>${ed.id?'<button class="alt" data-a="del">Delete</button>':""}</div></div>`;
  return h+`<div class="card"><h2>Reminders</h2><p class="note">Each slot can remind you before it starts, even when the app is closed.</p><div class="add"><button data-a="perm">Allow notifications</button>${LN?'<button class="alt" data-a="exact">Allow exact alarms</button>':""}</div></div>`}
 function vFr(){let h=`<div class="card"><h2>You</h2><div class="add"><input type="text" id="nm" maxlength="30" placeholder="Your name" value="${esc(st.name)}"></div>`;
- if(!DB)return h+'<p class="note">Sharing is off. Add your Firebase keys in www/config.js (see README).</p></div>';
+ if(!DB)return h+'<p class="note">Sharing is off.</p><p class="note">Reason: '+esc(FS)+'</p></div>';
  h+=`<p class="note">Your friend code:</p><div class="add"><input type="text" readonly id="mycode" value="${ME}"><button data-a="copy">Copy</button></div></div>
  <div class="card"><h2>Add a friend</h2><div class="add"><input type="text" id="fc" placeholder="Paste friend code"><button data-a="af">Add</button></div><p class="note">Both of you add each other's code to see each other live.</p></div>`;
  if(WF)h+='<p class="note">Couldn\'t sync. Check your internet.</p>';
+ if(/error/i.test(FS))h+='<p class="note">'+esc(FS)+'</p>';
  if(!st.fr.length)return h;
  if(!st.fr.includes(fsel))fsel=st.fr[0];
  const nm=u=>(P[u]&&P[u].name)||"Friend",p=P[fsel],[ma,mt]=pct(st,fd);
@@ -132,10 +134,14 @@ document.addEventListener("click",e=>{const b=e.target.closest("button[data-a]")
 /* cloud */
 function syncSubs(){Object.keys(subs).forEach(u=>{if(!st.fr.includes(u)){subs[u]();delete subs[u];delete P[u]}});
  st.fr.forEach(u=>{if(subs[u])return;subs[u]=DB.collection("users").doc(u).onSnapshot(s=>{if(s.exists)P[u]=s.data();else delete P[u];rr()},()=>{delete P[u];rr()})})}
-(()=>{try{const c=window.FB_CONFIG;if(!window.firebase||!c||!c.apiKey||c.apiKey.indexOf("PASTE")==0)return;
- firebase.initializeApp(c);
- firebase.auth().onAuthStateChanged(u=>{if(!u)return;ME=u.uid;DB=firebase.firestore();const go=()=>{push();syncSubs();render()};
+(()=>{const upd=m=>{FS=m;rr()};try{const c=window.FB_CONFIG;
+ if(!window.firebase)return upd("Firebase scripts didn't load. Check internet and reopen the app.");
+ if(!c)return upd("config.js is missing or in the wrong format. It must start with: window.FB_CONFIG = {");
+ if(!c.apiKey||c.apiKey.indexOf("PASTE")==0)return upd("config.js still has placeholder keys.");
+ upd("Connecting...");firebase.initializeApp(c);
+ firebase.auth().onAuthStateChanged(u=>{if(!u)return;ME=u.uid;DB=firebase.firestore();
+  const go=e=>{FS=e?"Database error: "+(e.code||e.message):"Connected";push();syncSubs();render()};
   DB.collection("users").doc(ME).get().then(s=>{if(s.exists){const d=s.data();if(d&&d.u>st.lu&&d.slots){st.slots=d.slots;st.tk=d.tk||{};st.tg=d.tg||[];st.name=d.name||st.name;st.lu=d.u;if(!st.fr.length&&d.following)st.fr=d.following;st.nid=Math.max(st.nid,...st.slots.map(z=>z.id+1));try{localStorage.setItem("tm2",JSON.stringify(st))}catch(e){}resched()}}go()}).catch(go)});
- firebase.auth().signInAnonymously().catch(()=>{})}catch(e){}})();
+ firebase.auth().signInAnonymously().catch(e=>upd("Sign-in error: "+(e.code||e.message)))}catch(e){upd("Setup error: "+(e.message||e))}})();
 render();resched();
 </script></body></html>

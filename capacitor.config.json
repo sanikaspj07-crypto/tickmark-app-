@@ -1,0 +1,6 @@
+{
+  "appId": "com.sanika.tickmark",
+  "appName": "Tickmark",
+  "webDir": "www",
+  "android": { "backgroundColor": "#efe6dc" }
+}
